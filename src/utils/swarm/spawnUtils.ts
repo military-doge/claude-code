@@ -125,8 +125,12 @@ const TEAMMATE_ENV_VARS = [
   'ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES',
   'ANTHROPIC_DEFAULT_OPUS_MODEL',
   'ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES',
-  // Custom API endpoint
+  // Custom API endpoint + per-slot credential. The model slots sync a slot's
+  // own base URL / Bearer key into these env vars, so teammates must inherit
+  // them too or they'd talk to the default endpoint with no/wrong auth.
   'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_API_KEY',
   'AZURE_OPENAI_BASE_URL',
   'AZURE_OPENAI_ENDPOINT',
   'AZURE_OPENAI_API_VERSION',

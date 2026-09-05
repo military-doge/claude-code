@@ -376,6 +376,14 @@ export const SettingsSchema = lazySchema(() =>
         .string()
         .optional()
         .describe('Override the default model used by Claude Code'),
+      modelSlot: z
+        .number()
+        .int()
+        .optional()
+        .describe(
+          'Index of the MODEL_SLOT_N_* env slot the selected model came from; ' +
+            'persists exact slot identity when several slots share one engine',
+        ),
       // Enterprise allowlist of models
       availableModels: z
         .array(z.string())

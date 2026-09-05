@@ -13,6 +13,7 @@ import {
 import { signClaudeCodeCCHBody } from 'src/utils/claudeCodeCch.js'
 import { getUserAgent } from 'src/utils/http.js'
 import { getSmallFastModel } from 'src/utils/model/model.js'
+import { ensurePersistedSlotEnvOnce } from 'src/utils/model/modelSlotEnv.js'
 import {
   getAPIProvider,
   isFirstPartyAnthropicBaseUrl,
@@ -210,6 +211,9 @@ export async function getAnthropicClient({
   fetchOverride?: ClientOptions['fetch']
   source?: string
 }): Promise<Anthropic> {
+  // Ensure the persisted slot's baseURL/apiKey are live in process.env before
+  // the first client is built (headless/resume paths without a picker).
+  ensurePersistedSlotEnvOnce()
   const containerId = process.env.CLAUDE_CODE_CONTAINER_ID
   const remoteSessionId = process.env.CLAUDE_CODE_REMOTE_SESSION_ID
   const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP

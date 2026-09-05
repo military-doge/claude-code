@@ -40,6 +40,7 @@ import {
 import { has1mContext } from '../context.js'
 import { getGlobalConfig } from '../config.js'
 import { OPENAI_CODEX_MODEL_CATALOG } from '../../services/openaiAuth/models.js'
+import { getConfiguredModelSlots } from './modelSlots.js'
 
 // @[MODEL LAUNCH]: Update all the available and default model option strings below.
 
@@ -48,6 +49,8 @@ export type ModelOption = {
   label: string
   description: string
   descriptionForModel?: string
+  /** MODEL_SLOT_ index this option came from, when the row is an env slot. */
+  slotIndex?: number
 }
 
 function pushUniqueOption(
@@ -489,7 +492,21 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
     return payg1POptions
   }
 
-  // PAYG 3P: Default (Sonnet 4.5) + optional custom Fable + Sonnet + Opus + Haiku
+  // PAYG 3P: when MODEL_SLOT_* env vars are configured, show exactly those slots
+  // (each = vendor model name + optional gray description). Slots that aren't
+  // written in the env don't appear. MODEL_SLOT_1 acts as the default engine.
+  const configuredSlots = getConfiguredModelSlots()
+  if (configuredSlots.length > 0) {
+    return configuredSlots.map(slot => ({
+      value: slot.model,
+      label: slot.model,
+      description: slot.description,
+      slotIndex: slot.index,
+    }))
+  }
+
+  // PAYG 3P fallback (no MODEL_SLOT_* configured):
+  // Default (Sonnet 4.5) + optional custom Fable + Sonnet + Opus + Haiku
   const payg3pOptions = [getDefaultOptionForUser(fastMode)]
 
   pushUniqueOption(payg3pOptions, getCustomFableOption())

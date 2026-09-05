@@ -14,6 +14,7 @@ import { MODEL_ALIASES } from '../../utils/model/aliases.js';
 import { checkOpus1mAccess, checkSonnet1mAccess } from '../../utils/model/check1mAccess.js';
 import { getDefaultMainLoopModelSetting, getDefaultSonnetModel, isOpus1mMergeEnabled, renderDefaultModelSetting } from '../../utils/model/model.js';
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js';
+import { ensureActiveSlotEnv, persistActiveModelSlot } from '../../utils/model/modelSlotEnv.js';
 import { validateModel } from '../../utils/model/validateModel.js';
 function ModelPickerWrapper(t0) {
   const $ = _c(17);
@@ -201,6 +202,10 @@ function SetModelAndClose({
         mainLoopModel: modelValue,
         mainLoopModelForSession: null
       }));
+      // Inline /model <name>: sync the matching slot's baseURL/apiKey into
+      // process.env and persist its index (non-slot/default → revert + clear).
+      const appliedIndex = ensureActiveSlotEnv(modelValue);
+      persistActiveModelSlot(appliedIndex);
       let message = `Set model to ${chalk.bold(renderModelLabel(modelValue))}`;
       let wasFastModeToggledOn = undefined;
       if (isFastModeEnabled()) {

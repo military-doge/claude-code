@@ -11,6 +11,7 @@ import { useAppState, useSetAppState } from '../state/AppState.js';
 import { convertEffortValueToLevel, type EffortLevel, getDefaultEffortForModel, modelSupportsEffort, modelSupportsMaxEffort, resolvePickerEffortPersistence, toPersistableEffort } from '../utils/effort.js';
 import { getDefaultMainLoopModel, type ModelSetting, modelDisplayString, parseUserSpecifiedModel } from '../utils/model/model.js';
 import { getModelOptions } from '../utils/model/modelOptions.js';
+import { ensureActiveSlotEnv, getPersistedSlotIndex, persistActiveModelSlot } from '../utils/model/modelSlotEnv.js';
 import { getSettingsForSource, updateSettingsForSource } from '../utils/settings/settings.js';
 import { ConfigurableShortcutHint } from './ConfigurableShortcutHint.js';
 import { Select } from './CustomSelect/index.js';
@@ -223,7 +224,7 @@ export function ModelPicker(t0) {
   useKeybindings(t12, t13);
   let t14;
   if ($[35] !== effort || $[36] !== hasToggledEffort || $[37] !== onSelect || $[38] !== setAppState || $[39] !== skipSettingsWrite) {
-    t14 = function handleSelect(value_0) {
+    t14 = function handleSelect(value_0, slotIndex_0) {
       logEvent("tengu_model_command_menu_effort", {
         effort: effort as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
       });
@@ -239,6 +240,12 @@ export function ModelPicker(t0) {
           ...prev_0,
           effortValue: effortLevel
         }));
+        // Sync the chosen slot's baseURL/apiKey into process.env for the whole
+        // session (subagents included) and persist the exact slot index — needed
+        // to tell duplicate-engine slots apart after a restart. Non-slot models
+        // resolve to null and revert to the global env.
+        const appliedIndex = ensureActiveSlotEnv(value_0 === NO_PREFERENCE ? null : value_0, slotIndex_0 ?? null);
+        persistActiveModelSlot(appliedIndex);
       }
       const selectedModel = resolveOptionModel(value_0);
       const selectedEffort = hasToggledEffort && selectedModel && modelSupportsEffort(selectedModel) ? effort : undefined;
@@ -265,7 +272,7 @@ export function ModelPicker(t0) {
   } else {
     t15 = $[41];
   }
-  const t16 = headerText ?? "Switch between Claude models. Applies to this session and future Claude Code sessions. For other/previous model names, specify with --model.";
+  const t16 = headerText ?? "Switch between available models. The choice persists across sessions and after restarting Claude Code.";
   let t17;
   if ($[42] !== t16) {
     t17 = <Text dimColor={true}>{t16}</Text>;
@@ -294,7 +301,7 @@ export function ModelPicker(t0) {
   const t20 = onCancel ?? _temp4;
   let t21;
   if ($[49] !== handleFocus || $[50] !== handleSelect || $[51] !== initialFocusValue || $[52] !== initialValue || $[53] !== selectOptions || $[54] !== t20 || $[55] !== visibleCount) {
-    t21 = <Box flexDirection="column"><Select defaultValue={initialValue} defaultFocusValue={initialFocusValue} options={selectOptions} onChange={handleSelect} onFocus={handleFocus} onCancel={t20} visibleOptionCount={visibleCount} /></Box>;
+    t21 = <Box flexDirection="column"><Select defaultValue={modelKeyFromSlot(selectOptions, initialValue, getPersistedSlotIndex())} defaultFocusValue={modelKeyFromSlot(selectOptions, initialFocusValue, getPersistedSlotIndex())} options={selectOptions.map((opt, index) => ({ ...opt, value: modelOptionKey(opt.value, index) }))} onChange={key => handleSelect(modelOptionValueByKey(selectOptions, key), modelSlotIndexByKey(selectOptions, key))} onFocus={key => handleFocus(modelOptionValueByKey(selectOptions, key))} onCancel={t20} visibleOptionCount={visibleCount} /></Box>;
     $[49] = handleFocus;
     $[50] = handleSelect;
     $[51] = initialFocusValue;
@@ -336,7 +343,7 @@ export function ModelPicker(t0) {
   }
   let t25;
   if ($[67] !== showFastModeNotice) {
-    t25 = isFastModeEnabled() ? showFastModeNotice ? <Box marginBottom={1}><Text dimColor={true}>Fast mode is <Text bold={true}>ON</Text> and available with{" "}{FAST_MODE_MODEL_DISPLAY} only (/fast). Switching to other models turn off fast mode.</Text></Box> : isFastModeAvailable() && !isFastModeCooldown() ? <Box marginBottom={1}><Text dimColor={true}>Use <Text bold={true}>/fast</Text> to turn on Fast mode ({FAST_MODE_MODEL_DISPLAY} only).</Text></Box> : null : null;
+    t25 = isFastModeEnabled() ? showFastModeNotice ? <Box marginBottom={1}><Text dimColor={true}>Fast mode is <Text bold={true}>ON</Text> and available with{" "}{FAST_MODE_MODEL_DISPLAY} only (/fast). Switching to other models turn off fast mode.</Text></Box> : isFastModeAvailable() && !isFastModeCooldown() ? <Box marginBottom={1}><Text dimColor={true}>deepseek-v4 peak hours (UTC+8): Mon-Fri 09:00-12:00 and 14:00-18:00. Price is 2x the off-peak rate.</Text></Box> : null : null;
     $[67] = showFastModeNotice;
     $[68] = t25;
   } else {
@@ -401,6 +408,46 @@ function _temp(s) {
 function resolveOptionModel(value?: string): string | undefined {
   if (!value) return undefined;
   return value === NO_PREFERENCE ? getDefaultMainLoopModel() : parseUserSpecifiedModel(value);
+}
+// --- Unique per-row keys for the underlying Select list --------------------
+// CustomSelect navigates by option.value, so duplicate model strings (e.g. two
+// MODEL_SLOT_* rows pointing at the same engine) must get distinct keys. The
+// key embeds the list index; the real engine value is recovered by index.
+function modelOptionKey(value, index) {
+  return value === NO_PREFERENCE ? value : `${value}\u0000${index}`;
+}
+function modelOptionValueByKey(selectOptions, key) {
+  if (key === NO_PREFERENCE) return NO_PREFERENCE;
+  const sep = key.lastIndexOf("\u0000");
+  if (sep >= 0) {
+    const idx = Number(key.slice(sep + 1));
+    const matched = selectOptions[idx];
+    if (matched) return matched.value;
+  }
+  const byValue = selectOptions.find(opt => opt.value === key);
+  return byValue ? byValue.value : key;
+}
+function modelKeyFromValue(selectOptions, value) {
+  if (value === NO_PREFERENCE) return NO_PREFERENCE;
+  const idx = selectOptions.findIndex(opt => opt.value === value);
+  return idx >= 0 ? `${value}\u0000${idx}` : value;
+}
+function modelSlotIndexByKey(selectOptions, key) {
+  if (key === NO_PREFERENCE) return null;
+  const sep = key.lastIndexOf("\u0000");
+  if (sep >= 0) {
+    const idx = Number(key.slice(sep + 1));
+    const matched = selectOptions[idx];
+    if (matched) return matched.slotIndex ?? null;
+  }
+  return null;
+}
+function modelKeyFromSlot(selectOptions, value, slotIndex) {
+  if (value === NO_PREFERENCE || slotIndex == null) return modelKeyFromValue(selectOptions, value);
+  // Prefer the exact duplicate-engine row that matches the persisted slot index,
+  // so /model reopens highlighting the slot that is actually active.
+  const idx = selectOptions.findIndex(opt => opt.value === value && opt.slotIndex === slotIndex);
+  return idx >= 0 ? `${value}\u0000${idx}` : modelKeyFromValue(selectOptions, value);
 }
 function EffortLevelIndicator(t0) {
   const $ = _c(5);

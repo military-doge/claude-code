@@ -6,6 +6,7 @@
  * during dead code elimination
  */
 import { getMainLoopModelOverride } from '../../bootstrap/state.js'
+import { getConfiguredModelSlots } from './modelSlots.js'
 import {
   getSubscriptionType,
   is1PApiCustomer,
@@ -241,6 +242,13 @@ export function getDefaultMainLoopModelSetting(): ModelName | ModelAlias {
   // Team Premium gets Opus (same as Max)
   if (isTeamPremiumSubscriber()) {
     return getDefaultOpusModel() + (isOpus1mMergeEnabled() ? '[1m]' : '')
+  }
+
+  // When MODEL_SLOT_* env vars are configured, MODEL_SLOT_1 is the default
+  // startup engine (the picker no longer has a separate null "Default" row).
+  const configuredSlots = getConfiguredModelSlots()
+  if (configuredSlots.length > 0) {
+    return configuredSlots[0]!.model
   }
 
   // Third-party provider defaults and subscription tiers that are not
