@@ -19,7 +19,7 @@ function readBuildScript() {
 
 function readCliLauncher() {
   return readFileSync(
-    path.resolve(import.meta.dirname, '../../bin/claude-haha'),
+    path.resolve(import.meta.dirname, '../../bin/claude'),
     'utf8',
   )
 }

@@ -1718,7 +1718,7 @@ export class ConversationService {
           ...baseArgs,
         ]
       }
-      return [path.resolve(import.meta.dir, '../../../bin/claude-haha'), ...baseArgs]
+      return [path.resolve(import.meta.dir, '../../../bin/claude'), ...baseArgs]
     }
 
     return buildClaudeCliArgs(launcher, baseArgs, process.env.CLAUDE_APP_ROOT)
@@ -1770,7 +1770,7 @@ export class ConversationService {
       )
     ) {
       return new ConversationStartupError(
-        'Desktop chat could not start because Claude CLI is not authenticated. Run `./bin/claude-haha /login` or provide valid API credentials, then retry.',
+        'Desktop chat could not start because Claude CLI is not authenticated. Run `./bin/claude /login` or provide valid API credentials, then retry.',
         'CLI_AUTH_REQUIRED',
       )
     }

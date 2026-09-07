@@ -5,11 +5,11 @@
   "type": "module",
   "packageManager": "bun@1.3.14",
   "bin": {
-    "claude-haha": "./bin/claude-haha"
+    "claude": "./bin/claude"
   },
   "scripts": {
-    "claude-haha": "bun run ./bin/claude-haha",
-    "start": "bun run ./bin/claude-haha",
+    "claude": "bun run ./bin/claude",
+    "start": "bun run ./bin/claude",
     "perf:local-index": "bun run scripts/perf/local-index-benchmark.ts",
     "perf:local-index:10k": "bun run scripts/perf/local-index-benchmark.ts --sessions 10000 --runs 20",
     "check:pr": "bun run scripts/pr/check-pr.ts",
