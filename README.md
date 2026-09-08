@@ -49,8 +49,8 @@ MODEL_SLOT_3_MODEL=provider-b-turbo
   ```bash
   git clone https://github.com/military-doge/claude-code.git
   ```
-
-  执行后生成的 `claude-code` 文件夹即为 `<仓库路径>`。
+  
+  仓库路径请自己处理。执行后生成的 `claude-code` 文件夹即为 `<仓库路径>`。
 
 **步骤二：安装 bun 运行时**
 
@@ -112,7 +112,7 @@ cp .env.example .env
 
 ### Windows（原生 cmd / PowerShell）
 
-Windows 的入口命令没有 bash 包装脚本可用，因此用 `claude.bat` 直接调用 CLI 入口（效果等同 `./bin/claude`）。下面示例按仓库默认目录 `D:\claude-code` 编写——把它**替换成你解压/克隆后的实际路径**，文件存为 `claude.bat`，放到 PATH 中任一目录（例如 `C:\Users\<用户名>\bin\`），之后即可在 cmd / PowerShell 里直接敲 `claude` 启动：
+Windows 的入口命令没有 bash 包装脚本可用，因此用 `claude.bat` 直接调用 CLI 入口（效果等同 `./bin/claude`）。下面示例按仓库默认目录 `D:\claude-code` 编写——把它**替换成你解压/克隆后的实际路径**，文件存为 `claude.bat`，放到 `C:\Users\<用户名>\.bun\bin\`（步骤二安装 bun 时已自动将其加入 PATH，新开终端即可生效），之后即可在 cmd / PowerShell 里任意目录直接敲 `claude` 启动：
 
 ```bat
 @echo off
