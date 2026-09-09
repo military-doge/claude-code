@@ -6,7 +6,11 @@
  * during dead code elimination
  */
 import { getMainLoopModelOverride } from '../../bootstrap/state.js'
-import { getConfiguredModelSlots } from './modelSlots.js'
+import {
+  getConfiguredModelSlots,
+  isModelSlotMode,
+} from './modelSlots.js'
+import { resolveActiveSlot } from './modelSlotEnv.js'
 import {
   getSubscriptionType,
   is1PApiCustomer,
@@ -44,7 +48,17 @@ export type ModelName = string
 export type ModelSetting = ModelName | ModelAlias | null
 
 export function getSmallFastModel(): ModelName {
-  return process.env.ANTHROPIC_SMALL_FAST_MODEL || getDefaultHaikuModel()
+  if (process.env.ANTHROPIC_SMALL_FAST_MODEL) {
+    return process.env.ANTHROPIC_SMALL_FAST_MODEL
+  }
+  if (isModelSlotMode()) {
+    // Vendor endpoints have no claude-haiku-4-5; run background calls on the
+    // slot backing the current engine (falls back to MODEL_SLOT_1 when the
+    // engine is stale or not slot-backed).
+    const slots = getConfiguredModelSlots()
+    return resolveActiveSlot(getMainLoopModel())?.model ?? slots[0]!.model
+  }
+  return getDefaultHaikuModel()
 }
 
 export function isNonCustomOpusModel(model: ModelName): boolean {
@@ -230,6 +244,17 @@ export function getDefaultMainLoopModelSetting(): ModelName | ModelAlias {
     return resolveOpenAICodexModel('opus')
   }
 
+  // Slot mode: when MODEL_SLOT_* env vars are configured, MODEL_SLOT_1 is the
+  // default startup engine and everything below (first-party API, subscriber
+  // tiers) is unreachable. Remove all MODEL_SLOT_* lines from .env to restore
+  // upstream behavior. This check must stay ahead of is1PApiCustomer(): on a
+  // cold start without a global ANTHROPIC_BASE_URL, is1PApiCustomer() would
+  // otherwise win and route the session to the official API.
+  const configuredSlots = getConfiguredModelSlots()
+  if (configuredSlots.length > 0) {
+    return configuredSlots[0]!.model
+  }
+
   if (is1PApiCustomer()) {
     return getDefaultOpusModel()
   }
@@ -242,13 +267,6 @@ export function getDefaultMainLoopModelSetting(): ModelName | ModelAlias {
   // Team Premium gets Opus (same as Max)
   if (isTeamPremiumSubscriber()) {
     return getDefaultOpusModel() + (isOpus1mMergeEnabled() ? '[1m]' : '')
-  }
-
-  // When MODEL_SLOT_* env vars are configured, MODEL_SLOT_1 is the default
-  // startup engine (the picker no longer has a separate null "Default" row).
-  const configuredSlots = getConfiguredModelSlots()
-  if (configuredSlots.length > 0) {
-    return configuredSlots[0]!.model
   }
 
   // Third-party provider defaults and subscription tiers that are not

@@ -33,8 +33,10 @@ import {
 } from '../../utils/model/modelOptions.js'
 import {
   getDefaultMainLoopModelSetting,
+  getSmallFastModel,
   parseUserSpecifiedModel,
 } from '../../utils/model/model.js'
+import { ensureActiveSlotEnv } from '../../utils/model/modelSlotEnv.js'
 import {
   getSettingsForSource,
   updateSettingsForSource,
@@ -61,6 +63,10 @@ let originalAnthropicDefaultOpusModel: string | undefined
 let originalAnthropicDefaultFableModel: string | undefined
 let originalAnthropicDefaultFableModelName: string | undefined
 let originalDisable1mContext: string | undefined
+// MODEL_SLOT_* / MODEL_PROVIDER_* from the repo .env (auto-loaded by `bun
+// test`) would switch the app into slot mode and change model resolution;
+// snapshot and clear them so these tests stay deterministic.
+let originalSlotEnv: Array<[string, string]> = []
 
 async function setup() {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-test-'))
@@ -96,6 +102,12 @@ async function setup() {
   delete process.env.ANTHROPIC_DEFAULT_FABLE_MODEL
   delete process.env.ANTHROPIC_DEFAULT_FABLE_MODEL_NAME
   delete process.env.CLAUDE_CODE_DISABLE_1M_CONTEXT
+  originalSlotEnv = Object.entries(process.env).filter(([key]) =>
+    /^MODEL_(SLOT|PROVIDER)_/.test(key),
+  )
+  for (const [key] of originalSlotEnv) {
+    delete process.env[key]
+  }
   clearKeychainCache()
   primeKeychainCacheFromPrefetch(null)
   clearOpenAIOAuthTokenCache()
@@ -108,6 +120,16 @@ async function teardown() {
   resetSettingsCache()
   clearAllOutputStylesCache()
   clearOutputStyleCaches()
+
+  for (const key of Object.keys(process.env)) {
+    if (/^MODEL_(SLOT|PROVIDER)_/.test(key)) {
+      delete process.env[key]
+    }
+  }
+  for (const [key, value] of originalSlotEnv) {
+    process.env[key] = value
+  }
+  originalSlotEnv = []
 
   if (originalConfigDir !== undefined) {
     process.env.CLAUDE_CONFIG_DIR = originalConfigDir
@@ -1045,6 +1067,43 @@ describe('Model Options', () => {
     expect(values).toContain('sonnet')
     expect(values).not.toContain('opus')
     expect(values).not.toContain('opus[1m]')
+  })
+
+  it('uses MODEL_SLOT_* env vars as the only engines while in slot mode', () => {
+    process.env.MODEL_SLOT_1_MODEL = 'vendor-model-a'
+    process.env.MODEL_SLOT_1_DESCRIPTION = 'Vendor A'
+    process.env.MODEL_SLOT_2_MODEL = 'vendor-model-b'
+
+    // Slot 1 wins over the first-party Opus default even without a global
+    // ANTHROPIC_BASE_URL set (fresh cold start).
+    expect(getDefaultMainLoopModelSetting()).toBe('vendor-model-a')
+
+    const options = getModelOptions()
+    expect(options.map(option => option.value)).toEqual([
+      'vendor-model-a',
+      'vendor-model-b',
+    ])
+    expect(options.map(option => option.slotIndex)).toEqual([1, 2])
+  })
+
+  it('keeps slot-mode routing on a vendor slot even for stale engines', () => {
+    process.env.MODEL_SLOT_1_MODEL = 'vendor-model-a'
+    delete process.env.ANTHROPIC_SMALL_FAST_MODEL
+    const savedAuthToken = process.env.ANTHROPIC_AUTH_TOKEN
+    try {
+      // An official/stale engine string never reverts to the global endpoint:
+      // ensureActiveSlotEnv falls back to MODEL_SLOT_1.
+      expect(ensureActiveSlotEnv('claude-opus-4-8')).toBe(1)
+      // Background (haiku-class) calls use the active slot's model since
+      // vendor endpoints do not serve claude-haiku-4-5.
+      expect(getSmallFastModel()).toBe('vendor-model-a')
+    } finally {
+      if (savedAuthToken === undefined) {
+        delete process.env.ANTHROPIC_AUTH_TOKEN
+      } else {
+        process.env.ANTHROPIC_AUTH_TOKEN = savedAuthToken
+      }
+    }
   })
 
   it('keeps Anthropic-compatible third-party URLs on lag-safe defaults', () => {

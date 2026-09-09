@@ -40,7 +40,10 @@ import {
 import { has1mContext } from '../context.js'
 import { getGlobalConfig } from '../config.js'
 import { OPENAI_CODEX_MODEL_CATALOG } from '../../services/openaiAuth/models.js'
-import { getConfiguredModelSlots } from './modelSlots.js'
+import {
+  getConfiguredModelSlots,
+  isModelSlotMode,
+} from './modelSlots.js'
 
 // @[MODEL LAUNCH]: Update all the available and default model option strings below.
 
@@ -441,6 +444,20 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
     return getOpenAIModelOptions(fastMode)
   }
 
+  // Slot mode: when MODEL_SLOT_* env vars are configured, show exactly those
+  // slots (each = vendor model name + optional gray description) and nothing
+  // else — the official Anthropic / subscriber lists stay unreachable so the
+  // picker is always consistent with the env-configured endpoints.
+  // MODEL_SLOT_1 acts as the default engine (see getDefaultMainLoopModelSetting).
+  if (isModelSlotMode()) {
+    return getConfiguredModelSlots().map(slot => ({
+      value: slot.model,
+      label: slot.model,
+      description: slot.description,
+      slotIndex: slot.index,
+    }))
+  }
+
   if (isClaudeAISubscriber()) {
     if (isMaxSubscriber() || isTeamPremiumSubscriber()) {
       // Max and Team Premium users: Opus is default, show Sonnet as alternative
@@ -492,20 +509,7 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
     return payg1POptions
   }
 
-  // PAYG 3P: when MODEL_SLOT_* env vars are configured, show exactly those slots
-  // (each = vendor model name + optional gray description). Slots that aren't
-  // written in the env don't appear. MODEL_SLOT_1 acts as the default engine.
-  const configuredSlots = getConfiguredModelSlots()
-  if (configuredSlots.length > 0) {
-    return configuredSlots.map(slot => ({
-      value: slot.model,
-      label: slot.model,
-      description: slot.description,
-      slotIndex: slot.index,
-    }))
-  }
-
-  // PAYG 3P fallback (no MODEL_SLOT_* configured):
+  // PAYG 3P fallback (no MODEL_SLOT_* configured — slot mode returned earlier):
   // Default (Sonnet 4.5) + optional custom Fable + Sonnet + Opus + Haiku
   const payg3pOptions = [getDefaultOptionForUser(fastMode)]
 

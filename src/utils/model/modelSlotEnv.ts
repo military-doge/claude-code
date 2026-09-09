@@ -113,14 +113,20 @@ export function applySlotEnv(slot: ConfiguredModelSlot | null): void {
 
 /**
  * Apply the active slot's env for an engine string and return the slot index
- * that was applied (null when reverting to global). Call after the model is
- * (re)selected or resolved so subsequent requests use the slot's own endpoint.
+ * that was applied. In slot mode (any MODEL_SLOT_* configured) an engine that
+ * resolves to no slot still falls back to MODEL_SLOT_1, so requests never
+ * leak to the global/official endpoint. Outside slot mode, returns null and
+ * reverts to the global env. Call after the model is (re)selected or resolved
+ * so subsequent requests use the slot's own endpoint.
  */
 export function ensureActiveSlotEnv(
   engine?: string | null,
   explicitIndex?: number | null,
 ): number | null {
-  const slot = resolveActiveSlot(engine, explicitIndex)
+  const slot =
+    resolveActiveSlot(engine, explicitIndex) ??
+    getConfiguredModelSlots()[0] ??
+    null
   applySlotEnv(slot)
   return slot?.index ?? null
 }

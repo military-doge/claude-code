@@ -135,6 +135,17 @@ function findSlotProviderId(index: number): string | null {
   return null
 }
 
+/**
+ * True when any MODEL_SLOT_* is configured in the environment. This forks the
+ * app into "slot mode": env-configured vendor models become the sole source
+ * of engines (default startup, /model list, request routing), and the
+ * official Anthropic model paths stay unreachable until every MODEL_SLOT_*
+ * line is removed.
+ */
+export function isModelSlotMode(): boolean {
+  return getConfiguredModelSlots().length > 0
+}
+
 export function getConfiguredModelSlots(): ConfiguredModelSlot[] {
   const slots: ConfiguredModelSlot[] = []
   for (let i = 1; i <= MODEL_SLOT_COUNT; i++) {
