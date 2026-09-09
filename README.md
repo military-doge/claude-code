@@ -129,14 +129,15 @@ bun --feature=TRANSCRIPT_CLASSIFIER "%CLAUDE_ROOT%/src/entrypoints/cli.tsx" %*
 
 ### Linux（以 WSL 实测）
 
-Linux 上有 bash，可直接复用仓库自带的 `./bin/claude` 脚本，只需一条命令让它全局可用：
+Linux 上有 bash，可直接复用仓库自带的 `./bin/claude` 脚本，只需两条命令让它全局可用：
 
-1. 打开终端，运行下面两行命令（`/home/user/claude-code` 是仓库默认目录，若你的仓库放在别处请**替换成你解压/克隆后的实际路径**）。`bun link` 会在 `~/.bun/bin` 目录下生成一个名为 `claude` 的链接指向本仓库；该目录由安装 bun 时创建，并已自动加入 PATH。
+1. 打开终端，运行下面三行命令（`/home/user/claude-code` 是仓库默认目录，若你的仓库放在别处请**替换成你解压/克隆后的实际路径**）。`bun link` 把本仓库注册为全局包，`bun install -g claude-code-local` 会在 `~/.bun/bin` 目录下生成一个名为 `claude` 的链接指向本仓库；该目录由安装 bun 时创建，并已自动加入 PATH。
 2. **重新打开**一个终端，在任意目录直接输入 `claude` 并回车，即可启动会话。
 
 ```bash
 cd /home/user/claude-code
 bun link
+bun install -g claude-code-local
 ```
 
 ## 上游功能
